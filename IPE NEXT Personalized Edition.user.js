@@ -57,13 +57,13 @@
 
                 '#custom-fake-scrollbar .thumb, #custom-fake-scrollbar-h .thumb {',
                 '    position: absolute;',
-                '    background-color: rgba(0, 0, 0, 0.3);',
+                '    background-color: rgba(120, 120, 120, 0.6);',
                 '    border-radius: 4px;',
                 '    cursor: pointer;',
                 '    transition: background-color 0.2s;',
                 '}',
                 '#custom-fake-scrollbar .thumb:hover, #custom-fake-scrollbar-h .thumb:hover {',
-                '    background-color: rgba(0, 0, 0, 0.6);',
+                '    background-color: rgba(120, 120, 120, 0.9);',
                 '}',
                 '#custom-fake-scrollbar .thumb { right: 0; width: 8px; }',
                 '#custom-fake-scrollbar-h .thumb { bottom: 0; height: 8px; }',
@@ -71,6 +71,9 @@
                 '/* 快速编辑设置修正 */',
                 '.oo-ui-window-frame { max-height: 400px !important; }',
                 '.oo-ui-window-content { height: 400px; }',
+
+                '/* 隐藏个人不需要的侧边工具 */',
+                '.bui-sns-info { display: none; }',
 
                 '/* 工具图标CSS定制 */',
                 '#ipe-edit-toolbox { will-change: transform; }',
@@ -180,12 +183,14 @@
                 if (isNearRightEdge || isNearBottomEdge) {
                     showScrollbars();
                 } else {
-                    // 如果鼠标不在边缘，且有定时器，则清除定时器，让滚动条保持隐藏
-                    if (hideTimer) {
-                        fakeScrollbarV.classList.remove('visible');
-                        fakeScrollbarH.classList.remove('visible');
-                        clearTimeout(hideTimer);
-                        hideTimer = null;
+                    // 如果鼠标不在边缘，且当前没有在拖拽任何一个滚动条，才执行隐藏逻辑
+                    if (!isDraggingV && !isDraggingH) {
+                        if (hideTimer) {
+                            fakeScrollbarV.classList.remove('visible');
+                            fakeScrollbarH.classList.remove('visible');
+                            clearTimeout(hideTimer);
+                            hideTimer = null;
+                        }
                     }
                 }
             }, { passive: true });
