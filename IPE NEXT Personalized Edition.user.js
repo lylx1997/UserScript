@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IPE NEXT 个人定制版
 // @namespace    https://github.com/lylx1997
-// @version      0.2.6
+// @version      0.2.7
 // @description  动态加载 InPageEdit NEXT，集成位置记忆、双击归位、防抖及样式优化，实现跨浏览器的悬浮、自动隐藏滚动条。
 // @author       乐与乐寻
 // @match        https://wiki.biligame.com/*
@@ -33,40 +33,36 @@
         window.RLQ.push(function() {
             // 1. 注入自定义 CSS
             var customCSS = [
-                '/* 隐藏原生滚动条但保留滚动功能 */',
-                'html {',
-                '    scrollbar-width: none; /* Firefox */',
-                '    -ms-overflow-style: none; /* IE/Edge */',
-                '}',
-                'html::-webkit-scrollbar { display: none; } /* Chrome/Edge/Safari */',
+                '/* 隐藏原生滚动条 */',
+                'html { scrollbar-width: none; -ms-overflow-style: none; }',
+                'html::-webkit-scrollbar { display: none; }',
 
-                '/* 自定义悬浮滚动条样式 */',
+                '/* 滚动条轨道容器 */',
                 '#custom-fake-scrollbar, #custom-fake-scrollbar-h {',
-                '    position: fixed;',
-                '    z-index: 99999;',
-                '    pointer-events: none;', /* 默认不阻挡页面点击 */
-                '    opacity: 0;',
+                '    position: fixed; z-index: 99999; pointer-events: none; opacity: 0;',
                 '    transition: opacity 0.3s ease;',
                 '}',
                 '#custom-fake-scrollbar.visible, #custom-fake-scrollbar-h.visible {',
-                '    opacity: 1;',
-                '    pointer-events: auto;', /* 显示时允许拖拽 */
+                '    opacity: 1; pointer-events: auto;',
                 '}',
-                '#custom-fake-scrollbar { top: 0; right: 0; width: 8px; height: 100vh; }',
-                '#custom-fake-scrollbar-h { bottom: -7px; left: 0; height: 8px; width: 100vw; }',
+                '#custom-fake-scrollbar { top: 0; right: 1px; width: 6px; height: 100vh; }',
+                '#custom-fake-scrollbar-h { bottom: -6px; left: 0; height: 6px; width: 100vw; }',
 
+                '/* 滑块默认样式 */',
                 '#custom-fake-scrollbar .thumb, #custom-fake-scrollbar-h .thumb {',
-                '    position: absolute;',
-                '    background-color: rgba(120, 120, 120, 0.6);',
-                '    border-radius: 4px;',
-                '    cursor: pointer;',
-                '    transition: background-color 0.2s;',
+                '    position: absolute; background-color: rgba(120, 120, 120, 0.6);',
+                '    border-radius: 4px; cursor: pointer;',
                 '}',
-                '#custom-fake-scrollbar .thumb:hover, #custom-fake-scrollbar-h .thumb:hover {',
-                '    background-color: rgba(120, 120, 120, 0.9);',
+                '#custom-fake-scrollbar .thumb { right: 0; width: 6px; transition: background-color 0.2s, width 0.2s; }',
+                '#custom-fake-scrollbar-h .thumb { bottom: 0; height: 6px; transition: background-color 0.2s, height 0.2s; }',
+
+                '/* 滑块悬停与拖拽加粗样式 */',
+                '#custom-fake-scrollbar .thumb:hover, #custom-fake-scrollbar.dragging .thumb {',
+                '    background-color: rgba(120, 120, 120, 0.9); width: 8px !important;',
                 '}',
-                '#custom-fake-scrollbar .thumb { right: 0; width: 8px; }',
-                '#custom-fake-scrollbar-h .thumb { bottom: 0; height: 8px; }',
+                '#custom-fake-scrollbar-h .thumb:hover, #custom-fake-scrollbar-h.dragging .thumb {',
+                '    background-color: rgba(120, 120, 120, 0.9); height: 8px !important;',
+                '}',
 
                 '/* 快速编辑设置修正 */',
                 '.oo-ui-window-frame { max-height: 400px !important; }',
@@ -202,6 +198,7 @@
             // 垂直拖拽
             thumbV.addEventListener('mousedown', function(e) {
                 isDraggingV = true;
+                fakeScrollbarV.classList.add('dragging');
                 dragStartPos = e.clientY;
                 dragScrollStart = window.scrollY || document.documentElement.scrollTop;
                 e.preventDefault();
@@ -210,6 +207,7 @@
             // 水平拖拽
             thumbH.addEventListener('mousedown', function(e) {
                 isDraggingH = true;
+                fakeScrollbarH.classList.add('dragging');
                 dragStartPos = e.clientX;
                 dragScrollStart = window.scrollX || document.documentElement.scrollLeft;
                 e.preventDefault();
@@ -250,6 +248,8 @@
                 if (isDraggingV || isDraggingH) {
                     isDraggingV = false;
                     isDraggingH = false;
+                    fakeScrollbarV.classList.remove('dragging');
+                    fakeScrollbarH.classList.remove('dragging');
                     // 鼠标松开后，延迟隐藏
                     hideTimer = setTimeout(function() {
                         fakeScrollbarV.classList.remove('visible');
