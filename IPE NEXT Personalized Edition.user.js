@@ -51,7 +51,7 @@
         updateTranslateMenu();
     };
 
-    // --- 【新增】阻止遮罩关闭菜单 ---
+    // --- 阻止遮罩关闭菜单 ---
     let isPreventMaskEnabled = (typeof GM_getValue !== 'undefined')
         ? GM_getValue('ipe-prevent-mask-enabled', true)
         : true;
@@ -73,14 +73,12 @@
         if (typeof GM_setValue !== 'undefined') {
             GM_setValue('ipe-prevent-mask-enabled', isPreventMaskEnabled);
         }
-        // 将状态发送给主脚本
         window.postMessage({ type: 'IPE_PREVENT_MASK_TOGGLE', enabled: isPreventMaskEnabled }, '*');
         updatePreventMaskMenu();
     };
 
     window.addEventListener('message', function(e) {
         if (e.data && e.data.type === 'IPE_REQUEST_INITIAL_STATE') {
-            // 收到请求后，把当前真实的状态发送回去
             window.postMessage({ type: 'IPE_TRANSLATE_TOGGLE', enabled: isTranslateEnabled }, '*');
             window.postMessage({ type: 'IPE_PREVENT_MASK_TOGGLE', enabled: isPreventMaskEnabled }, '*');
         }
