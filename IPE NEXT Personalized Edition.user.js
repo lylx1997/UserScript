@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IPE NEXT 个人定制版
 // @namespace    https://github.com/lylx1997
-// @version      0.3.0
+// @version      0.3.1
 // @description  动态加载 InPageEdit NEXT，集成位置记忆、双击归位、防抖、样式及中文翻译一致性优化，实现跨浏览器的悬浮、自动隐藏滚动条。
 // @author       乐与乐寻
 // @match        https://wiki.biligame.com/*
@@ -25,19 +25,15 @@
         });
     }
 
-
-    // 翻译功能菜单（沙箱层）
-    let isTranslateEnabled;
-    if (typeof GM_getValue === 'undefined') {
-        isTranslateEnabled = true;
-    } else {
-        isTranslateEnabled = GM_getValue('ipe-translate-enabled', true);
-    }
+    // --- 翻译功能菜单 ---
+    let isTranslateEnabled = (typeof GM_getValue !== 'undefined')
+        ? GM_getValue('ipe-translate-enabled', true)
+        : true;
 
     let translateMenuId = null;
 
     function updateTranslateMenu() {
-        if (translateMenuId !== null) {
+        if (translateMenuId !== null && typeof GM_unregisterMenuCommand !== 'undefined') {
             GM_unregisterMenuCommand(translateMenuId);
         }
         translateMenuId = GM_registerMenuCommand(
@@ -55,8 +51,44 @@
         updateTranslateMenu();
     };
 
+    // --- 【新增】阻止遮罩关闭菜单 ---
+    let isPreventMaskEnabled = (typeof GM_getValue !== 'undefined')
+        ? GM_getValue('ipe-prevent-mask-enabled', true)
+        : true;
+
+    let preventMaskMenuId = null;
+
+    function updatePreventMaskMenu() {
+        if (preventMaskMenuId !== null && typeof GM_unregisterMenuCommand !== 'undefined') {
+            GM_unregisterMenuCommand(preventMaskMenuId);
+        }
+        preventMaskMenuId = GM_registerMenuCommand(
+            isPreventMaskEnabled ? '✅ 阻止遮罩事件' : '❌ 阻止遮罩事件',
+            togglePreventMask
+        );
+    }
+
+    const togglePreventMask = () => {
+        isPreventMaskEnabled = !isPreventMaskEnabled;
+        if (typeof GM_setValue !== 'undefined') {
+            GM_setValue('ipe-prevent-mask-enabled', isPreventMaskEnabled);
+        }
+        // 将状态发送给主脚本
+        window.postMessage({ type: 'IPE_PREVENT_MASK_TOGGLE', enabled: isPreventMaskEnabled }, '*');
+        updatePreventMaskMenu();
+    };
+
+    window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'IPE_REQUEST_INITIAL_STATE') {
+            // 收到请求后，把当前真实的状态发送回去
+            window.postMessage({ type: 'IPE_TRANSLATE_TOGGLE', enabled: isTranslateEnabled }, '*');
+            window.postMessage({ type: 'IPE_PREVENT_MASK_TOGGLE', enabled: isPreventMaskEnabled }, '*');
+        }
+    });
+
     if (typeof GM_registerMenuCommand !== 'undefined') {
         updateTranslateMenu();
+        updatePreventMaskMenu();
     }
 
     // ========== 页面上下文层：所有 DOM/CSS/RLQ 操作在此执行 ==========
@@ -410,7 +442,7 @@
             }
         });
 
-            // 7. 窗口英文翻译模块
+            // 7. 窗口英文翻译模块（首选项未翻译，需穿透Shadow）
             (function() {
                 const dictionaries = {
                     '.quick-diff': {
@@ -419,10 +451,10 @@
                         'contribs': '贡献',
                         'block': '封禁',
                         'Newest version': '最新版本',
-                        '← Previous': '← 上一个',
-                        'Next →': '下一个 →',
-                        'Original Compare Page': '原始比较页面',
-                        'Oldest version': '最早版本'
+                        '← Previous': '← 上一编辑',
+                        'Next →': '下一编辑 →',
+                        'Oldest version': '最早版本',
+                        'Original Compare Page': '原比较页'
                     },
                     '.size--dialog': {
                         'Edit any page': '编辑任意页',
@@ -440,23 +472,52 @@
                         'Reset': '重置',
                         'Target filename': '目标文件名',
                         'File description': '文件描述',
-                        'Queued': '已排队',
-                        'Uploaded': '已上传'
+                        'Queued': '排队',
+                        'Uploaded': '已上传',
+                        'Warning': '警告',
+                        'A file with the same name already exists.': '已存在同名文件。',
+                        'Failed':'失败',
+                        'Upload failed with unknown error.':'因未知错误上传失败。',
+                        'Retry failed/warnings': '重试失败/警告',
+                        'Open file page':'打开文件页',
+                        'Open file URL':' '
                     }
                 };
 
-                // 翻译开关状态（默认开启，等待沙箱层同步）
-                let isEnabled = true;
+                // 开关状态（默认开启，等待沙箱层同步）
+                let isTranslateEnabled = true;
+                let isPreventMaskEnabled = true;
+                document.addEventListener('DOMContentLoaded', () => {
+                    window.postMessage({ type: 'IPE_REQUEST_INITIAL_STATE' }, '*');
+                });
                 // 监听来自沙箱层的菜单开关指令
                 window.addEventListener('message', function(e) {
-                    if (e.data && e.data.type === 'IPE_TRANSLATE_TOGGLE') {
-                        isEnabled = e.data.enabled;
+                    if (!e.data || !e.data.type) return;
+                    if (e.data.type === 'IPE_TRANSLATE_TOGGLE') {
+                        isTranslateEnabled = e.data.enabled;
                     }
+                    if (e.data.type === 'IPE_PREVENT_MASK_TOGGLE') {
+                        isPreventMaskEnabled = e.data.enabled;
+                    }
+                });
+
+                //阻止点击外部区域关闭编辑器（解决插件不同步首选项）
+                const preventEvents = ['mouseup', 'pointerup', 'touchend'];
+                preventEvents.forEach(function(eventName) {
+                    document.addEventListener(eventName, function(e) {
+                        // 检查点击目标是否为遮罩层
+                        if (e.target && e.target.classList.contains('ipe-modal-backdrop')) {
+                            if (isPreventMaskEnabled) {
+                                e.stopPropagation();
+                                e.preventDefault();
+                            }
+                        }
+                    }, true);
                 });
 
                 let timer = null;
                 function translate() {
-                    if (!isEnabled) return;
+                    if (!isTranslateEnabled) return;
                     // 遍历所有配置了字典的窗口类名
                     for (const selector in dictionaries) {
                         if (!dictionaries.hasOwnProperty(selector)) continue;
@@ -488,6 +549,5 @@
             })();
 
     })();`;
-    document.documentElement.appendChild(pageScript);
-    pageScript.remove();// 注入后立即移除标签，保持 DOM 干净
+    document.head.appendChild(pageScript);
 })();
