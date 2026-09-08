@@ -5,6 +5,7 @@
 // @description  动态加载 InPageEdit NEXT，集成位置记忆、双击归位、防抖、样式及中文翻译一致性优化，实现跨浏览器的悬浮、自动隐藏滚动条。
 // @author       乐与乐寻
 // @match        https://wiki.biligame.com/*
+// @match        https://searchwiki.biligame.com/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -51,7 +52,7 @@
         updateTranslateMenu();
     };
 
-    // --- 阻止遮罩关闭菜单 ---
+    // --- 阻止遮罩事件菜单 ---
     let isPreventMaskEnabled = (typeof GM_getValue !== 'undefined')
         ? GM_getValue('ipe-prevent-mask-enabled', true)
         : true;
@@ -91,7 +92,7 @@
 
     // ========== 页面上下文层：所有 DOM/CSS/RLQ 操作在此执行 ==========
     const pageScript = document.createElement('script');
-    pageScript.textContent = `(function() {
+    pageScript.textContent = /*js*/`(function() {
         'use strict';
         const STORAGE_KEY = '${STORAGE_KEY}';
         window.RLQ = window.RLQ || [];
@@ -203,7 +204,7 @@
                 let docHeight = document.documentElement.scrollHeight;
                 let winHeight = window.innerHeight;
                 let scrollTop = window.scrollY || document.documentElement.scrollTop;
-                if (docHeight <= winHeight) { thumbV.style.height = '0px'; return; }
+                if (docHeight - winHeight <= 1) { thumbV.style.height = '0px'; return; }
                 let thumbHeight = Math.max(30, (winHeight / docHeight) * winHeight);
                 let thumbTop = (scrollTop / (docHeight - winHeight)) * (winHeight - thumbHeight);
                 thumbV.style.height = thumbHeight + 'px';
@@ -215,7 +216,7 @@
                 let docWidth = document.documentElement.scrollWidth;
                 let winWidth = window.innerWidth;
                 let scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-                if (docWidth <= winWidth) { thumbH.style.width = '0px'; return; }
+                if (docWidth - winWidth <= 1) { thumbH.style.width = '0px'; return; }
                 let thumbWidth = Math.max(30, (winWidth / docWidth) * winWidth);
                 let thumbLeft = (scrollLeft / (docWidth - winWidth)) * (winWidth - thumbWidth);
                 thumbH.style.width = thumbWidth + 'px';
@@ -327,11 +328,11 @@
             });
 
             // 4. 特殊页面样式
-            const targetHost = 'wiki.biligame.com';
-            const targetPaths = ['/ys', '/zzz'];
+            const targetHosts = ['wiki.biligame.com', 'searchwiki.biligame.com'];
+            const targetPaths = ['/ys', '/zzz', '/wiki'];
             const currentHost = window.location.hostname;
             const currentPath = window.location.pathname;
-            if (currentHost === targetHost && targetPaths.some(function(p) { return currentPath.startsWith(p); })) {
+            if (targetHosts.includes(currentHost) && targetPaths.some(function(p) { return currentPath.startsWith(p); })) {
                 const s = document.createElement('style');
                 s.textContent = 'a:focus:not(:focus-visible) { outline-style: none; }';
                 document.head.appendChild(s);
@@ -440,112 +441,120 @@
             }
         });
 
-            // 7. 窗口英文翻译模块（首选项未翻译，需穿透Shadow）
-            (function() {
-                const dictionaries = {
-                    '.quick-diff': {
-                        'Quick edit': '快速编辑',
-                        'talk': '讨论',
-                        'contribs': '贡献',
-                        'block': '封禁',
-                        'Newest version': '最新版本',
-                        '← Previous': '← 上一编辑',
-                        'Next →': '下一编辑 →',
-                        'Oldest version': '最早版本',
-                        'Original Compare Page': '原比较页'
-                    },
-                    '.size--dialog': {
-                        'Edit any page': '编辑任意页',
-                        'OK': '确定',
-                        'Cancel': '取消'
-                    },
-                    '#ipe-toolbox__edit-any-page': {
-                        'Edit any page': '编辑任意页'
-                    },
-                    '.ipe-quickUpload': {
-                        'No files selected.': '未选择文件',
-                        'Files': '文件',
-                        'You can drag & drop files to this modal': '您可以将文件拖放到此弹窗中',
-                        'Summary (applies to all files)': '摘要（适用于所有文件）',
-                        'Reset': '重置',
-                        'Target filename': '目标文件名',
-                        'File description': '文件描述',
-                        'Queued': '排队',
-                        'Uploaded': '已上传',
-                        'Warning': '警告',
-                        'A file with the same name already exists.': '已存在同名文件。',
-                        'Failed':'失败',
-                        'Upload failed with unknown error.':'因未知错误上传失败。',
-                        'Retry failed/warnings': '重试失败/警告',
-                        'Open file page':'打开文件页',
-                        'Open file URL':' '
-                    }
-                };
+        // 7. 窗口英文翻译模块（首选项未翻译，需穿透Shadow）
+        (function() {
+            const dictionaries = {
+                '.quick-diff': {
+                    'Quick edit': '快速编辑',
+                    'talk': '讨论',
+                    'contribs': '贡献',
+                    'block': '封禁',
+                    'Newest version': '最新版本',
+                    '← Previous': '← 上一编辑',
+                    'Next →': '下一编辑 →',
+                    'Oldest version': '最早版本',
+                    'Original Compare Page': '原比较页',
+                    'Original content':'最后版本',
+                    'Your content':'您的文本'
+                },
+                '.size--dialog': {
+                    'Edit any page': '编辑任意页',
+                    'OK': '确定',
+                    'Cancel': '取消'
+                },
+                '#ipe-toolbox__edit-any-page': {
+                    'Edit any page': '编辑任意页'
+                },
+                '.ipe-quickUpload': {
+                    'No files selected.': '未选择文件',
+                    'Files': '文件',
+                    'You can drag & drop files to this modal': '您可以将文件拖放到此弹窗中',
+                    'Summary (applies to all files)': '摘要（适用于所有文件）',
+                    'Reset': '重置',
+                    'Target filename': '目标文件名',
+                    'File description': '文件描述',
+                    'Queued': '排队',
+                    'Uploaded': '已上传',
+                    'Warning': '警告',
+                    'A file with the same name already exists.': '已存在同名文件。',
+                    'Failed':'失败',
+                    'Upload failed with unknown error.':'因未知错误上传失败。',
+                    'Retry failed/warnings': '重试失败/警告',
+                    'Open file page':'打开文件页',
+                    'Open file URL':' '
+                }
+            };
 
-                // 开关状态（默认开启，等待沙箱层同步）
-                let isTranslateEnabled = true;
-                let isPreventMaskEnabled = true;
-                document.addEventListener('DOMContentLoaded', () => {
-                    window.postMessage({ type: 'IPE_REQUEST_INITIAL_STATE' }, '*');
-                });
-                // 监听来自沙箱层的菜单开关指令
-                window.addEventListener('message', function(e) {
-                    if (!e.data || !e.data.type) return;
-                    if (e.data.type === 'IPE_TRANSLATE_TOGGLE') {
-                        isTranslateEnabled = e.data.enabled;
-                    }
-                    if (e.data.type === 'IPE_PREVENT_MASK_TOGGLE') {
-                        isPreventMaskEnabled = e.data.enabled;
-                    }
-                });
+            // 开关状态（默认开启，等待沙箱层同步）
+            let isTranslateEnabled = true;
+            let isPreventMaskEnabled = true;
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', requestInitialState);
+            } else {
+                requestInitialState();
+            }
+            function requestInitialState() {
+                window.postMessage({ type: 'IPE_REQUEST_INITIAL_STATE' }, '*');
+            }
 
-                //阻止点击外部区域关闭编辑器（解决插件不同步首选项）
-                const preventEvents = ['mouseup', 'pointerup', 'touchend'];
-                preventEvents.forEach(function(eventName) {
-                    document.addEventListener(eventName, function(e) {
-                        // 检查点击目标是否为遮罩层
-                        if (e.target && e.target.classList.contains('ipe-modal-backdrop')) {
-                            if (isPreventMaskEnabled) {
-                                e.stopPropagation();
-                                e.preventDefault();
-                            }
+            // 监听来自沙箱层的菜单开关指令
+            window.addEventListener('message', function(e) {
+                if (!e.data || !e.data.type) return;
+                if (e.data.type === 'IPE_TRANSLATE_TOGGLE') {
+                    isTranslateEnabled = e.data.enabled;
+                }
+                if (e.data.type === 'IPE_PREVENT_MASK_TOGGLE') {
+                    isPreventMaskEnabled = e.data.enabled;
+                }
+            });
+
+            //阻止点击外部区域关闭编辑器（解决插件不同步首选项）
+            const preventEvents = ['mouseup', 'pointerup', 'touchend'];
+
+            preventEvents.forEach(function(eventName) {
+                document.addEventListener(eventName, function(e) {
+                    // 检查点击目标是否为遮罩层
+                    if (e.target && e.target.classList.contains('ipe-modal-backdrop')) {
+                        if (isPreventMaskEnabled) {
+                            e.stopPropagation();
+                            e.preventDefault();
                         }
-                    }, true);
-                });
+                    }
+                }, true);
+            });
 
-                let timer = null;
-                function translate() {
-                    if (!isTranslateEnabled) return;
-                    // 遍历所有配置了字典的窗口类名
-                    for (const selector in dictionaries) {
-                        if (!dictionaries.hasOwnProperty(selector)) continue;
-                        const windows = document.querySelectorAll(selector);
-                        if (!windows.length) continue;
-                        const dict = dictionaries[selector];
-                        for (let i = 0; i < windows.length; i++) {
-                            const walker = document.createTreeWalker(
-                                windows[i], NodeFilter.SHOW_TEXT, null, false
-                            );
-                            let node;
-                            while (node = walker.nextNode()) {
-                                const t = node.textContent.trim();
-                                if (dict.hasOwnProperty(t)) {
-                                    node.textContent = dict[t];
-                                }
+            let timer = null;
+            function translate() {
+                if (!isTranslateEnabled) return;
+                // 遍历所有配置了字典的窗口类名
+                for (const selector in dictionaries) {
+                    if (!dictionaries.hasOwnProperty(selector)) continue;
+                    const windows = document.querySelectorAll(selector);
+                    if (!windows.length) continue;
+                    const dict = dictionaries[selector];
+                    for (let i = 0; i < windows.length; i++) {
+                        const walker = document.createTreeWalker(
+                            windows[i], NodeFilter.SHOW_TEXT, null, false
+                        );
+                        let node;
+                        while (node = walker.nextNode()) {
+                            const t = node.textContent.trim();
+                            if (dict.hasOwnProperty(t)) {
+                                node.textContent = dict[t];
                             }
                         }
                     }
                 }
+            }
 
-                const observer = new MutationObserver(function() {
-                    if (timer) clearTimeout(timer);
-                    timer = setTimeout(function() {
-                        translate();
-                    }, 0);
-                });
-                observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-            })();
-
+            const observer = new MutationObserver(function() {
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(function() {
+                    translate();
+                }, 0);
+            });
+            observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+        })();
     })();`;
     document.head.appendChild(pageScript);
 })();
